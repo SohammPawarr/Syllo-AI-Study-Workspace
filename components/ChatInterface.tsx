@@ -114,11 +114,8 @@ export default function ChatInterface({
     const isReport = currentInput.startsWith("#report");
 
     if (isQuiz) {
-      const topic = currentInput.replace("#quiz", "").trim();
-      if (!topic) {
-        setIsLoading(false);
-        return;
-      }
+      let topic = currentInput.replace("#quiz", "").trim();
+      if (!topic) topic = "the whole document";
       userMessageContent = `📝 Generate a quiz about "${topic}" (${quizDifficulty}, ${quizQuestionCount} questions)`;
       apiUrl = "/api/generate-quiz";
       apiBody = {
@@ -128,30 +125,33 @@ export default function ChatInterface({
         question_count: quizQuestionCount,
       };
     } else if (isFlashcards) {
-      const topic = currentInput.replace("#flashcards", "").trim();
-      if (!topic) { setIsLoading(false); return; }
+      let topic = currentInput.replace("#flashcards", "").trim();
+      if (!topic) topic = "the whole document";
       userMessageContent = `📇 Generate flashcards about "${topic}"`;
       apiUrl = "/api/generate-flashcards";
       apiBody = { documentId, topic, count: 10 };
     } else if (isMindMap) {
-      const topic = currentInput.replace("#mindmap", "").trim();
-      if (!topic) { setIsLoading(false); return; }
+      let topic = currentInput.replace("#mindmap", "").trim();
+      if (!topic) topic = "the whole document";
       userMessageContent = `🧠 Generate a Mind Map about "${topic}"`;
       apiUrl = "/api/generate-mindmap";
       apiBody = { documentId, topic };
     } else if (isSummary) {
-      const topic = currentInput.replace("#summary", "").trim();
-      userMessageContent = `📄 Generate a ${summaryLength} summary${topic ? ` about "${topic}"` : ''}`;
+      let topic = currentInput.replace("#summary", "").trim();
+      if (!topic) topic = "the whole document";
+      userMessageContent = `📄 Generate a ${summaryLength} summary about "${topic}"`;
       apiUrl = "/api/generate-summary";
       apiBody = { documentId, topic: topic || "general overview", length: summaryLength };
     } else if (isVoice) {
-      const topic = currentInput.replace("#voice", "").trim();
-      userMessageContent = `🎧 Generate a voice summary in ${voiceLanguage}${topic ? ` about "${topic}"` : ''}`;
+      let topic = currentInput.replace("#voice", "").trim();
+      if (!topic) topic = "the whole document";
+      userMessageContent = `🎧 Generate a voice summary in ${voiceLanguage} about "${topic}"`;
       apiUrl = "/api/generate-voice";
       apiBody = { documentId, topic: topic || "general overview", language: voiceLanguage };
     } else if (isReport) {
-      const topic = currentInput.replace("#report", "").trim();
-      userMessageContent = `📑 Generate a PDF ${reportFormat}${topic ? ` about "${topic}"` : ''}`;
+      let topic = currentInput.replace("#report", "").trim();
+      if (!topic) topic = "the whole document";
+      userMessageContent = `📑 Generate a PDF ${reportFormat} about "${topic}"`;
       apiUrl = "/api/generate-report";
       apiBody = { documentId, topic: topic || "general overview", format_type: reportFormat };
     } else {
@@ -634,7 +634,7 @@ export default function ChatInterface({
               />
               <button
                 type="submit"
-                disabled={!input.trim() || isLoading || (input.startsWith("#") && input.split(" ").length < 2)}
+                disabled={!input.trim() || isLoading}
                 className="w-10 h-10 flex items-center justify-center rounded-full bg-[var(--brand-light-blue)] text-[var(--white)] hover:bg-[var(--brand-blue)] shadow-sm disabled:opacity-40 disabled:hover:bg-[var(--brand-light-blue)] transition-colors cursor-pointer shrink-0"
               >
                 {isLoading ? (

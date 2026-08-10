@@ -13,7 +13,7 @@ redis==5.0.0
 pymongo==4.8.0
 
 # PDF Processing
-pymupdf==1.24.4
+pymupdf>=1.24.4
 requests==2.32.0
 
 # Text Chunking
