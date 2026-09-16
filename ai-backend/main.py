@@ -175,9 +175,9 @@ async def upload_file(file: UploadFile = File(...)):
         # Generate unique filename to avoid collisions
         ext = os.path.splitext(file.filename)[1].lower() if file.filename else ""
         
-        # Security Guard 1: Must be a PDF
-        if ext != ".pdf":
-            raise HTTPException(status_code=400, detail="Only PDF files are allowed.")
+        # Security Guard 1: Must be a supported document type
+        if ext not in [".pdf", ".docx", ".pptx"]:
+            raise HTTPException(status_code=400, detail="Only PDF, DOCX, and PPTX files are allowed.")
             
         # Security Guard 2: Must be under 20MB
         if file.size and file.size > 20 * 1024 * 1024:
