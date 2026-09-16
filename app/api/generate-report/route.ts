@@ -10,10 +10,10 @@ const REPORT_COST = 400;
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { documentId, topic, format_type } = body;
+    const { workspaceId, topic, format_type } = body;
 
-    if (!documentId) {
-      return NextResponse.json({ error: 'Missing documentId' }, { status: 400 });
+    if (!workspaceId) {
+      return NextResponse.json({ error: 'Missing workspaceId' }, { status: 400 });
     }
 
     const session = await getServerSession(authOptions);
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        document_id: documentId,
+        workspace_id: workspaceId,
         topic: topic || "general overview",
         format_type: format_type || "Briefing Doc"
       }),

@@ -1,7 +1,7 @@
 """RAG retrieval — find the most relevant chunks for a query."""
 
 import numpy as np
-from database import get_chunks_for_document
+from database import get_chunks_for_workspace
 from services.embedding_service import generate_single_embedding
 
 
@@ -17,7 +17,7 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
 
 
 def retrieve_relevant_chunks(
-    document_id: str,
+    workspace_id: str,
     query: str,
     top_k: int = 10,
 ) -> str:
@@ -30,10 +30,10 @@ def retrieve_relevant_chunks(
     query_embedding = generate_single_embedding(query)
 
     # 2. Fetch all stored chunks for this document
-    chunks = get_chunks_for_document(document_id, limit=200)
+    chunks = get_chunks_for_workspace(workspace_id, limit=200)
 
     if not chunks:
-        raise ValueError(f"No chunks found for document {document_id}")
+        raise ValueError(f"No chunks found for document {workspace_id}")
 
     # 3. Score each chunk
     scored: list[tuple[float, str]] = []

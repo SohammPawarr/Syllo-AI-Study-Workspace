@@ -24,14 +24,14 @@ def get_db() -> Database:
 # Document helpers
 # ---------------------------------------------------------------------------
 
-def update_document_status(document_id: str, status: str, error_message: str | None = None) -> None:
+def update_document_status(workspace_id: str, status: str, error_message: str | None = None) -> None:
     """Update the processingStatus field of a document."""
     db = get_db()
     # Try ObjectId first, fall back to string match
     try:
-        filter_id = ObjectId(document_id)
+        filter_id = ObjectId(workspace_id)
     except Exception:
-        filter_id = document_id
+        filter_id = workspace_id
         
     update_data = {"processingStatus": status}
     if error_message is not None:
@@ -43,13 +43,13 @@ def update_document_status(document_id: str, status: str, error_message: str | N
     )
 
 
-def get_document(document_id: str) -> dict | None:
+def get_document(workspace_id: str) -> dict | None:
     """Fetch a single document by ID."""
     db = get_db()
     try:
-        filter_id = ObjectId(document_id)
+        filter_id = ObjectId(workspace_id)
     except Exception:
-        filter_id = document_id
+        filter_id = workspace_id
     return db.documents.find_one({"_id": filter_id})
 
 
@@ -61,11 +61,11 @@ def insert_chunks(chunks: list[dict]) -> None:
     db.documentchunks.insert_many(chunks)
 
 
-def get_chunks_for_document(document_id: str, limit: int = 20) -> list[dict]:
-    """Retrieve stored chunks for a given document."""
+def get_chunks_for_workspace(workspace_id: str, limit: int = 50) -> list[dict]:
+    """Retrieve stored chunks for a given workspace."""
     db = get_db()
     return list(
-        db.documentchunks.find({"documentId": document_id}).limit(limit)
+        db.documentchunks.find({"workspaceId": workspace_id}).limit(limit)
     )
 
 

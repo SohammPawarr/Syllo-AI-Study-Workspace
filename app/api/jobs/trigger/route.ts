@@ -3,10 +3,10 @@ import { NextResponse } from 'next/server';
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { documentId, fileUrl } = body;
+    const { workspaceId, fileUrl } = body;
 
-    if (!documentId || !fileUrl) {
-      return NextResponse.json({ error: "Missing documentId or fileUrl" }, { status: 400 });
+    if (!workspaceId || !fileUrl) {
+      return NextResponse.json({ error: "Missing workspaceId or fileUrl" }, { status: 400 });
     }
 
     const fastapiUrl = (process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:7860').replace(/\/$/, '');
@@ -17,7 +17,7 @@ export async function POST(req: Request) {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ document_id: documentId, file_url: fileUrl })
+      body: JSON.stringify({ workspace_id: workspaceId, file_url: fileUrl })
     });
 
     if (!response.ok) {

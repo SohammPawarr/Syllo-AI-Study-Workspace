@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import connectMongo from '@/lib/db/mongoose';
-import { Message, Document, User } from '@/lib/db/models';
+import { Message, Workspace, User } from '@/lib/db/models';
 
 export async function GET(req: Request) {
   try {
@@ -12,10 +12,10 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url);
-    const documentId = searchParams.get('documentId');
+    const workspaceId = searchParams.get('workspaceId');
 
-    if (!documentId) {
-      return NextResponse.json({ error: "documentId is required" }, { status: 400 });
+    if (!workspaceId) {
+      return NextResponse.json({ error: "workspaceId is required" }, { status: 400 });
     }
 
     await connectMongo();
@@ -23,13 +23,13 @@ export async function GET(req: Request) {
     const user = await User.findOne({ email: session.user.email });
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    // Verify document belongs to user
-    const doc = await Document.findOne({ _id: documentId, userId: user._id });
-    if (!doc) {
-      return NextResponse.json({ error: "Document not found" }, { status: 404 });
+    // Verify workspace belongs to user
+    const ws = await Workspace.findOne({ _id: workspaceId, userId: user._id });
+    if (!ws) {
+      return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
     }
 
-    const messages = await Message.find({ documentId, userId: user._id }).sort({ createdAt: 1 });
+    const messages = await Message.find({ workspaceId, userId: user._id }).sort({ createdAt: 1 });
     
     // Map to frontend ChatMessage format
     const formattedMessages = messages.map(m => ({
@@ -55,9 +55,9 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { documentId, role, content, type, meta } = body;
+    const { workspaceId, role, content, type, meta } = body;
 
-    if (!documentId || !role) {
+    if (!workspaceId || !role) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const newMessage = await Message.create({
-      documentId,
+      workspaceId,
       userId: user._id,
       role,
       content: content || '',

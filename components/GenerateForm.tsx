@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Network, Images, Wrench, Volume2, PieChart, Zap } from "lucide-react";
+import { FileText, Network, Images, Wrench, Volume2, PieChart, Zap, BookOpen } from "lucide-react";
 
 export default function ToolsPanel() {
   const insertTag = (tag: string) => {
@@ -49,6 +49,14 @@ export default function ToolsPanel() {
           onClick={() => insertTag("#summary ")}
           iconBg="bg-[var(--gray-700)]"
           iconText="text-[var(--white)]"
+        />
+        <ToolButton
+          icon={<BookOpen className="w-5 h-5" />}
+          label="Study Planner"
+          cost={250}
+          onClick={() => insertTag("#studyplan ")}
+          iconBg="bg-[var(--brand-yellow)]"
+          iconText="text-[var(--brand-blue)]"
         />
         <ToolButton
           icon={<Volume2 className="w-5 h-5" />}

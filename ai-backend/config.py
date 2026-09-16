@@ -16,6 +16,7 @@ class Settings:
     # Groq
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
     GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 
     # External Integrations
     GOOGLE_APPS_SCRIPT_URL: str = os.getenv("GOOGLE_APPS_SCRIPT_URL", "")

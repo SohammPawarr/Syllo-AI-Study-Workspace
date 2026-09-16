@@ -1,10 +1,10 @@
-"""Service for handling document chat using Gemini."""
+"""Service for handling document chat using Agentic RAG with Groq."""
 
-# pyrefly: ignore [missing-import]
+import json
 from groq import Groq
 from config import settings
+from services.rag_service import retrieve_relevant_chunks
 
-# Initialize Groq client lazy loading
 _client = None
 
 def get_groq_client():
@@ -15,51 +15,91 @@ def get_groq_client():
         _client = Groq(api_key=settings.GROQ_API_KEY)
     return _client
 
-def generate_chat_response(context: str, messages: list[dict]) -> str:
+def generate_chat_response(workspace_id: str, messages: list[dict]) -> str:
     """
-    Takes a list of messages (history + current message) and document context.
-    Returns the AI's next response.
+    Agentic RAG implementation using Groq tool calling.
+    The LLM decides whether to search the workspace or answer from history.
     """
-    if not messages:
-        raise ValueError("Message history cannot be empty.")
-
-    # The last message is the current query
-    current_message = messages[-1]["content"]
-    
     client = get_groq_client()
     
-    # Construct the system message incorporating the document context
     system_prompt = f"""You are Syllo, an intelligent AI study assistant developed by Soham Pawar.
-Your primary purpose is to help users analyze, understand, and explore topics related to their uploaded documents.
+You have access to a tool called `search_workspace` which searches the user's uploaded documents.
+If the user asks a question about their study materials, you MUST use the `search_workspace` tool to find the answer.
+If the user is just saying hello or asking a general question that relies on previous conversation history, you can answer directly.
+If the search results don't contain the answer, tell the user the information is missing from their documents.
+"""
 
---- CORE DIRECTIVES ---
-1. STRICT TOPICAL ENFORCEMENT: You must act as a strict tutor. First, identify the core subject matter of the provided "Document Context". You are explicitly FORBIDDEN from answering questions that fall outside of this subject matter (e.g., if the document is about Machine Learning, you must absolutely refuse to answer questions about football, Ben 10, or unrelated topics). 
-If a user asks an out-of-scope question, you must reply with: "I'm sorry, but I can only help you with questions related to the topic of your document."
-If the question IS related to the document's core subject matter, you may use your general knowledge to supplement the provided context.
-2. IDENTITY & DEVELOPER: If asked who you are, summarize yourself as "Syllo, an AI study assistant." If asked about your developer or creator, state clearly that you were developed by Soham Pawar.
-3. CONTENT MODERATION: If the user uses profanity, hate speech, or inappropriate language, you must issue a polite but firm warning asking them to phrase their prompt politely, and refuse to answer their question until they do so.
-
---- Document Context ---
-{context}
----"""
-
-    # Format history for Groq
-    formatted_messages = [
-        {"role": "system", "content": system_prompt}
-    ]
+    formatted_messages = [{"role": "system", "content": system_prompt}]
     
-    for msg in messages[:-1]:
-        # Convert roles (e.g., 'model' to 'assistant')
+    for msg in messages:
         role = "assistant" if msg["role"] in ["assistant", "model"] else "user"
         formatted_messages.append({"role": role, "content": msg["content"]})
-        
-    # Append the current query
-    formatted_messages.append({"role": "user", "content": current_message})
 
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "search_workspace",
+                "description": "Search the user's uploaded documents for information relevant to a query.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "The search query, e.g., 'What is mitosis?'"
+                        }
+                    },
+                    "required": ["query"]
+                }
+            }
+        }
+    ]
+
+    # Step 1: Initial call to see if it wants to use a tool
     response = client.chat.completions.create(
         model=settings.GROQ_MODEL,
         messages=formatted_messages,
+        tools=tools,
+        tool_choice="auto",
         temperature=0.3,
     )
-    
-    return response.choices[0].message.content
+
+    response_message = response.choices[0].message
+    tool_calls = response_message.tool_calls
+
+    if tool_calls:
+        # Step 2: It wants to search! Execute the tool.
+        formatted_messages.append(response_message) # Append the tool call
+        
+        for tool_call in tool_calls:
+            function_args = json.loads(tool_call.function.arguments)
+            search_query = function_args.get("query")
+            
+            # Perform actual Vector Search
+            try:
+                search_results = retrieve_relevant_chunks(
+                    workspace_id=workspace_id,
+                    query=search_query,
+                    top_k=10
+                )
+            except Exception as e:
+                search_results = f"Search failed: {str(e)}"
+                
+            formatted_messages.append({
+                "tool_call_id": tool_call.id,
+                "role": "tool",
+                "name": tool_call.function.name,
+                "content": search_results
+            })
+            
+        # Step 3: Call again with the search results
+        second_response = client.chat.completions.create(
+            model=settings.GROQ_MODEL,
+            messages=formatted_messages,
+            temperature=0.3,
+        )
+        return second_response.choices[0].message.content
+        
+    else:
+        # It didn't need to search, just return the answer
+        return response_message.content

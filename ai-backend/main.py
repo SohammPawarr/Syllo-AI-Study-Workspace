@@ -49,12 +49,12 @@ os.makedirs(TEMP_DIR, exist_ok=True)
 
 
 class ProcessRequest(BaseModel):
-    document_id: str
+    workspace_id: str
     file_url: str
 
 
 class GenerateRequest(BaseModel):
-    document_id: str
+    workspace_id: str
     topic: str
     difficulty: str = Field(default="Intermediate", pattern="^(Beginner|Intermediate|Advanced)$")
     question_count: int = Field(default=5, ge=1, le=20)
@@ -89,7 +89,7 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    document_id: str
+    workspace_id: str
     messages: list[ChatMessage]
 
 
@@ -99,7 +99,7 @@ class ChatResponse(BaseModel):
 
 
 class GenerateFlashcardsRequest(BaseModel):
-    document_id: str
+    workspace_id: str
     topic: str
     count: int = Field(default=10, ge=1, le=50)
 
@@ -113,7 +113,7 @@ class GenerateFlashcardsResponse(BaseModel):
 # Models for Summary Generation
 # ---------------------------------------------------------------------------
 class GenerateSummaryRequest(BaseModel):
-    document_id: str
+    workspace_id: str
     topic: str
     length: str = "medium"
 
@@ -127,7 +127,7 @@ class GenerateSummaryResponse(BaseModel):
 # Models for Voice and Report Generation
 # ---------------------------------------------------------------------------
 class GenerateVoiceRequest(BaseModel):
-    document_id: str
+    workspace_id: str
     topic: str
     language: str = "English"
 
@@ -138,7 +138,7 @@ class GenerateVoiceResponse(BaseModel):
 
 
 class GenerateReportRequest(BaseModel):
-    document_id: str
+    workspace_id: str
     topic: str
     format_type: str = "Briefing Doc"
 
@@ -150,6 +150,15 @@ class GenerateReportResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+
+class GenerateStudyGuideRequest(BaseModel):
+    workspace_id: str
+    topic: str
+    
+class GenerateStudyGuideResponse(BaseModel):
+    status: str
+    study_guide: str
+
 # API Endpoints
 # ---------------------------------------------------------------------------
 
@@ -192,8 +201,8 @@ async def process_document(request: ProcessRequest, background_tasks: Background
     """Queue a document for the full ingestion pipeline using FastAPI BackgroundTasks."""
     from background import process_document_background
 
-    background_tasks.add_task(process_document_background, request.document_id, request.file_url)
-    return ProcessResponse(status="queued", task_id=request.document_id)
+    background_tasks.add_task(process_document_background, request.workspace_id, request.file_url)
+    return ProcessResponse(status="queued", task_id=request.workspace_id)
 
 
 @app.get("/v1/status/{task_id}", response_model=TaskStatusResponse)
@@ -222,7 +231,7 @@ async def generate_quiz(request: GenerateRequest):
     try:
         # Step 1: RAG retrieval
         context = retrieve_relevant_chunks(
-            document_id=request.document_id,
+            workspace_id=request.workspace_id,
             query=request.topic,
             top_k=10,
         )
@@ -237,7 +246,7 @@ async def generate_quiz(request: GenerateRequest):
 
         # Step 3: Persist to MongoDB
         quiz_record = {
-            "documentId": request.document_id,
+            "workspaceId": request.workspace_id,
             "topic": request.topic,
             "difficulty": request.difficulty,
             "questionCount": request.question_count,
@@ -265,7 +274,7 @@ async def generate_flashcards_route(request: GenerateFlashcardsRequest):
     try:
         # Step 1: RAG retrieval
         context = retrieve_relevant_chunks(
-            document_id=request.document_id,
+            workspace_id=request.workspace_id,
             query=request.topic,
             top_k=10,
         )
@@ -288,28 +297,18 @@ async def generate_flashcards_route(request: GenerateFlashcardsRequest):
 @app.post("/v1/chat", response_model=ChatResponse)
 async def chat_route(request: ChatRequest):
     """
-    Chat with the document using RAG.
+    Chat using Agentic RAG with Groq tool calling.
     """
-    from services.rag_service import retrieve_relevant_chunks
     from services.chat_service import generate_chat_response
 
     try:
         if not request.messages:
             raise ValueError("Messages list cannot be empty")
 
-        current_query = request.messages[-1].content
-        
-        # Step 1: RAG retrieval
-        context = retrieve_relevant_chunks(
-            document_id=request.document_id,
-            query=current_query,
-            top_k=10,
-        )
-
-        # Step 2: Gemini generation
         messages_dict = [{"role": m.role, "content": m.content} for m in request.messages]
+        
         reply = generate_chat_response(
-            context=context,
+            workspace_id=request.workspace_id,
             messages=messages_dict,
         )
 
@@ -332,7 +331,7 @@ async def generate_summary_route(request: GenerateSummaryRequest):
     try:
         # Step 1: RAG retrieval
         context = retrieve_relevant_chunks(
-            document_id=request.document_id,
+            workspace_id=request.workspace_id,
             query=request.topic,
             top_k=15, # more chunks for better summary
         )
@@ -365,7 +364,7 @@ async def generate_voice_route(request: GenerateVoiceRequest):
 
     try:
         context = retrieve_relevant_chunks(
-            document_id=request.document_id,
+            workspace_id=request.workspace_id,
             query=request.topic,
             top_k=10,
         )
@@ -394,7 +393,7 @@ async def generate_report_route(request: GenerateReportRequest):
 
     try:
         context = retrieve_relevant_chunks(
-            document_id=request.document_id,
+            workspace_id=request.workspace_id,
             query=request.topic,
             top_k=15,
         )
@@ -414,7 +413,7 @@ async def generate_report_route(request: GenerateReportRequest):
 
 
 class GenerateMindMapRequest(BaseModel):
-    document_id: str
+    workspace_id: str
     topic: str
 
 class GenerateMindMapResponse(BaseModel):
@@ -431,7 +430,7 @@ async def generate_mindmap_route(request: GenerateMindMapRequest):
 
     try:
         context = retrieve_relevant_chunks(
-            document_id=request.document_id,
+            workspace_id=request.workspace_id,
             query=request.topic,
             top_k=10,
         )
@@ -450,5 +449,56 @@ async def generate_mindmap_route(request: GenerateMindMapRequest):
 
 
 # ---------------------------------------------------------------------------
+
+@app.post("/v1/generate-study-guide", response_model=GenerateStudyGuideResponse)
+async def generate_study_guide_route(request: GenerateStudyGuideRequest):
+    """
+    Generate a comprehensive study guide.
+    """
+    from services.rag_service import retrieve_relevant_chunks
+    from services.study_guide_service import generate_study_guide
+
+    try:
+        context = retrieve_relevant_chunks(
+            workspace_id=request.workspace_id,
+            query=request.topic,
+            top_k=20, # Pull a LOT of context
+        )
+        guide = generate_study_guide(context, request.topic)
+        return GenerateStudyGuideResponse(status="success", study_guide=guide)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class GenerateStudyPlanRequest(BaseModel):
+    workspace_id: str
+    topic: str
+
+class GenerateStudyPlanResponse(BaseModel):
+    status: str
+    study_plan: str
+
+@app.post("/v1/generate-studyplan", response_model=GenerateStudyPlanResponse)
+async def generate_study_plan_route(request: GenerateStudyPlanRequest):
+    """
+    Generate a day-by-day study schedule.
+    """
+    from services.rag_service import retrieve_relevant_chunks
+    from services.study_plan_service import generate_study_plan
+
+    try:
+        context = retrieve_relevant_chunks(
+            workspace_id=request.workspace_id,
+            query=request.topic,
+            top_k=20, # Pull a LOT of context
+        )
+        plan = generate_study_plan(context, request.topic)
+        return GenerateStudyPlanResponse(status="success", study_plan=plan)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Run with: uvicorn main:app --reload --port 7860
 # ---------------------------------------------------------------------------

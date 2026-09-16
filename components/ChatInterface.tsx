@@ -18,14 +18,14 @@ export interface ChatMessage {
 }
 
 interface ChatInterfaceProps {
-  documentId: string;
+  documentId: string; // Keep prop name as documentId for backward compatibility, but it's really workspaceId
   messages: ChatMessage[];
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
   onFlashcardTrigger?: (data: any) => void;
 }
 
 export default function ChatInterface({
-  documentId,
+  documentId: workspaceId,
   messages,
   setMessages,
   onFlashcardTrigger,
@@ -63,9 +63,9 @@ export default function ChatInterface({
 
   useEffect(() => {
     async function loadHistory() {
-      if (!documentId) return;
+      if (!workspaceId) return;
       try {
-        const res = await fetch(`/api/messages?documentId=${documentId}`);
+        const res = await fetch(`/api/messages?workspaceId=${workspaceId}`);
         if (res.ok) {
           const data = await res.json();
           setMessages(data.messages || []);
@@ -75,15 +75,15 @@ export default function ChatInterface({
       }
     }
     loadHistory();
-  }, [documentId, setMessages]);
+  }, [workspaceId, setMessages]);
 
   const saveMessageToDB = async (msg: ChatMessage) => {
-    if (!documentId) return;
+    if (!workspaceId) return;
     try {
       await fetch("/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ documentId, ...msg }),
+        body: JSON.stringify({ workspaceId, ...msg }),
       });
     } catch (err) {
       console.error("Failed to save message", err);
@@ -112,6 +112,7 @@ export default function ChatInterface({
     const isSummary = currentInput.startsWith("#summary");
     const isVoice = currentInput.startsWith("#voice");
     const isReport = currentInput.startsWith("#report");
+    const isStudyPlan = currentInput.startsWith("#studyplan");
 
     if (isQuiz) {
       let topic = currentInput.replace("#quiz", "").trim();
@@ -119,7 +120,7 @@ export default function ChatInterface({
       userMessageContent = `📝 Generate a quiz about "${topic}" (${quizDifficulty}, ${quizQuestionCount} questions)`;
       apiUrl = "/api/generate-quiz";
       apiBody = {
-        documentId,
+        workspaceId,
         topic,
         difficulty: quizDifficulty,
         question_count: quizQuestionCount,
@@ -129,33 +130,39 @@ export default function ChatInterface({
       if (!topic) topic = "the whole document";
       userMessageContent = `📇 Generate flashcards about "${topic}"`;
       apiUrl = "/api/generate-flashcards";
-      apiBody = { documentId, topic, count: 10 };
+      apiBody = { workspaceId, topic, count: 10 };
     } else if (isMindMap) {
       let topic = currentInput.replace("#mindmap", "").trim();
       if (!topic) topic = "the whole document";
       userMessageContent = `🧠 Generate a Mind Map about "${topic}"`;
       apiUrl = "/api/generate-mindmap";
-      apiBody = { documentId, topic };
+      apiBody = { workspaceId, topic };
     } else if (isSummary) {
       let topic = currentInput.replace("#summary", "").trim();
       if (!topic) topic = "the whole document";
       userMessageContent = `📄 Generate a ${summaryLength} summary about "${topic}"`;
       apiUrl = "/api/generate-summary";
-      apiBody = { documentId, topic: topic || "general overview", length: summaryLength };
+      apiBody = { workspaceId, topic: topic || "general overview", length: summaryLength };
     } else if (isVoice) {
       let topic = currentInput.replace("#voice", "").trim();
       if (!topic) topic = "the whole document";
       userMessageContent = `🎧 Generate a voice summary in ${voiceLanguage} about "${topic}"`;
       apiUrl = "/api/generate-voice";
-      apiBody = { documentId, topic: topic || "general overview", language: voiceLanguage };
+      apiBody = { workspaceId, topic: topic || "general overview", language: voiceLanguage };
     } else if (isReport) {
       let topic = currentInput.replace("#report", "").trim();
       if (!topic) topic = "the whole document";
       userMessageContent = `📑 Generate a PDF ${reportFormat} about "${topic}"`;
       apiUrl = "/api/generate-report";
-      apiBody = { documentId, topic: topic || "general overview", format_type: reportFormat };
+      apiBody = { workspaceId, topic: topic || "general overview", format_type: reportFormat };
+    } else if (isStudyPlan) {
+      let topic = currentInput.replace("#studyplan", "").trim();
+      if (!topic) topic = "the whole document";
+      userMessageContent = `📅 Generate a Study Planner for "${topic}"`;
+      apiUrl = "/api/generate-studyplan";
+      apiBody = { workspaceId, topic: topic || "general overview" };
     } else {
-      apiBody = { documentId, messages: [...messages, { role: "user", content: currentInput }] };
+      apiBody = { workspaceId, messages: [...messages, { role: "user", content: currentInput }] };
     }
 
     const userMsg: ChatMessage = { role: "user", content: userMessageContent };
@@ -170,7 +177,7 @@ export default function ChatInterface({
 
       const data = await res.json();
 
-      if (isQuiz || isFlashcards || isMindMap || isSummary || isVoice || isReport) {
+      if (isQuiz || isFlashcards || isMindMap || isSummary || isVoice || isReport || isStudyPlan) {
         refreshCredits();
       }
 
@@ -235,6 +242,11 @@ export default function ChatInterface({
             content: `${data.format_type} PDF generated!`,
             type: "report",
             meta: { pdfUrl: data.pdf_url, reportFormat: data.format_type },
+          });
+        } else if (isStudyPlan) {
+          await addMessage({
+            role: "model",
+            content: data.study_plan || data.reply,
           });
         } else {
           await addMessage({
@@ -477,7 +489,7 @@ export default function ChatInterface({
               ASK A QUESTION
             </p>
             <p className="text-xs font-medium">
-              Start chatting about your document
+              Start chatting about your workspace
             </p>
           </div>
         ) : (

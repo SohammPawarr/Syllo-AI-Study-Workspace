@@ -24,7 +24,7 @@ export async function POST(req: Request) {
 
     const backendBody = {
       ...body,
-      document_id: body.documentId,
+      workspace_id: body.workspaceId,
     };
 
     const response = await fetch(`${BACKEND_URL}/v1/generate`, {

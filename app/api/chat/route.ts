@@ -8,10 +8,10 @@ import { deductCredits } from '@/lib/db/userService';
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { documentId, messages } = body;
+    const { workspaceId, messages } = body;
 
-    if (!documentId || !messages) {
-      return NextResponse.json({ error: 'Missing documentId or messages' }, { status: 400 });
+    if (!workspaceId || !messages) {
+      return NextResponse.json({ error: 'Missing workspaceId or messages' }, { status: 400 });
     }
 
     const session = await getServerSession(authOptions);
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        document_id: documentId,
+        workspace_id: workspaceId,
         messages: messages,
       }),
     });
