@@ -5,7 +5,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 // Rename workspace
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
     await dbConnect();
     const session = await getServerSession(authOptions);
@@ -18,7 +18,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       return NextResponse.json({ error: "Missing title" }, { status: 400 });
     }
 
-    const workspace = await Workspace.findByIdAndUpdate(params.id, { title }, { new: true });
+    const { id } = await context.params;
+    const workspace = await Workspace.findByIdAndUpdate(id, { title }, { new: true });
     if (!workspace) {
       return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
     }
@@ -31,7 +32,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 // Delete workspace
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
     await dbConnect();
     const session = await getServerSession(authOptions);
@@ -39,7 +40,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const workspaceId = params.id;
+    const { id: workspaceId } = await context.params;
 
     // Delete the workspace and all its cascading data
     await Workspace.findByIdAndDelete(workspaceId);
