@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { deductCredits } from '@/lib/db/userService';
+export const maxDuration = 60; // Allow up to 60s for Vercel Serverless
 
 const COST = 250;
 const BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:7860';
