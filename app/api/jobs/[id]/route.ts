@@ -10,20 +10,38 @@ export async function GET(
     await dbConnect();
     const { id: documentId } = await params;
 
-    // Check status in MongoDB
-    const doc = await Document.findById(documentId);
+    // The frontend passes the workspaceId as the 'id' parameter in the URL.
+    // So 'documentId' here actually represents the workspaceId.
+    const docs = await Document.find({ workspaceId: documentId });
 
-    if (!doc) {
-      return NextResponse.json({ error: "Document not found" }, { status: 404 });
+    if (!docs || docs.length === 0) {
+      return NextResponse.json({ error: "Documents not found for this workspace" }, { status: 404 });
     }
 
-    // In a real implementation, we could also query Redis/Celery for exact progress percentage
+    // Aggregate statuses across all documents
+    let overallPhase = 'READY';
+    let errorMessage = null;
+
+    const phases = ['PENDING', 'EXTRACTING', 'CHUNKING', 'EMBEDDING', 'READY', 'FAILED'];
+    
+    for (const doc of docs) {
+      if (doc.processingStatus === 'FAILED') {
+        overallPhase = 'FAILED';
+        errorMessage = doc.errorMessage;
+        break;
+      }
+      // If the document's phase is less progressed than the overall phase, update overall phase
+      if (phases.indexOf(doc.processingStatus) < phases.indexOf(overallPhase)) {
+        overallPhase = doc.processingStatus;
+      }
+    }
+
     return NextResponse.json({
-      documentId: doc._id,
-      status: doc.processingStatus === 'READY' ? 'COMPLETED' : 'PROCESSING',
-      phase: doc.processingStatus,
-      result: doc.processingStatus === 'READY' ? { ready: true } : null,
-      error: doc.errorMessage
+      workspaceId: documentId,
+      status: overallPhase === 'READY' ? 'COMPLETED' : 'PROCESSING',
+      phase: overallPhase,
+      result: overallPhase === 'READY' ? { ready: true } : null,
+      error: errorMessage
     }, { status: 200 });
     
   } catch (error) {
