@@ -20,8 +20,7 @@ requests==2.32.0
 langchain-text-splitters==0.2.0
 
 # Embeddings
-sentence-transformers==3.0.1
-numpy>=1.26.0
+fastembed==0.3.3
 
 # Groq AI
 groq==1.4.0
