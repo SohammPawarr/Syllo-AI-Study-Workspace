@@ -10,6 +10,9 @@ def get_embedding_model():
     global _model
     if _model is None:
         model_name = settings.EMBEDDING_MODEL or "sentence-transformers/all-MiniLM-L6-v2"
+        # fastembed requires the "sentence-transformers/" prefix for this model
+        if model_name == "all-MiniLM-L6-v2":
+            model_name = "sentence-transformers/all-MiniLM-L6-v2"
         _model = TextEmbedding(model_name=model_name)
     return _model
 
