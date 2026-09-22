@@ -1,5 +1,9 @@
 """Vector embedding generation service using fastembed for low memory footprint."""
 
+import os
+# Disable tqdm progress bars in huggingface_hub to prevent threading/lock crashes in background tasks
+os.environ['HF_HUB_DISABLE_PROGRESS_BARS'] = '1'
+
 from fastembed import TextEmbedding
 from config import settings
 
