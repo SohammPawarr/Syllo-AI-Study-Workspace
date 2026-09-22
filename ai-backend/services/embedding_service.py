@@ -17,7 +17,8 @@ def get_embedding_model():
         # fastembed requires the "sentence-transformers/" prefix for this model
         if model_name == "all-MiniLM-L6-v2":
             model_name = "sentence-transformers/all-MiniLM-L6-v2"
-        _model = TextEmbedding(model_name=model_name)
+        # Force single thread to prevent ONNX runtime from consuming too much memory
+        _model = TextEmbedding(model_name=model_name, threads=1)
     return _model
 
 def generate_embeddings(texts: list[str]) -> list[list[float]]:
@@ -28,8 +29,8 @@ def generate_embeddings(texts: list[str]) -> list[list[float]]:
         return []
     
     model = get_embedding_model()
-    # fastembed returns a generator of numpy arrays
-    embeddings_generator = model.embed(texts)
+    # fastembed returns a generator of numpy arrays, process with small batch size
+    embeddings_generator = model.embed(texts, batch_size=32)
     embeddings = [emb.tolist() for emb in embeddings_generator]
     return embeddings
 
